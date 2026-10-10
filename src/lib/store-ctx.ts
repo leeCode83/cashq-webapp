@@ -36,6 +36,8 @@ export interface Store {
   markAllRead: () => void
   /** Sinkron saldo wallet dari hasil baca chain (faucet, advance, sweep). */
   setWalletBalance: (v: number) => void
+  /** Timpa statistik vault & posisi LP dengan hasil baca chain. */
+  syncLp: (vaultTvl: number, vaultOutstanding: number, lpPosition: number) => void
 }
 
 export const Ctx = createContext<Store | null>(null)

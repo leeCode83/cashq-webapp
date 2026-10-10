@@ -1,15 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useLogin, usePrivy } from '@privy-io/react-auth'
 import NumberFlow from '@number-flow/react'
 import { toast } from 'sonner'
 import { AmountInput, Badge, Btn, Field, Logo, Money, Rule } from '../../components/ui'
+import { FaucetGate } from '../../components/FaucetGate'
 import { Pagination } from '../../components/Pagination'
 import { Sparkline } from '../../components/Sparkline'
 import { StoreProvider } from '../../lib/store'
 import { useStore } from '../../lib/store-ctx'
 import { runTx } from '../../lib/tx'
 import { lp, sweeps, vault, type LpTx } from '../../lib/mock'
-import { fmtDate } from '../../lib/format'
+import { fmtDate, shortHash } from '../../lib/format'
+import { useSignerClient, useWalletAddress } from '../../lib/privy'
+import { approveIdrx, depositToVault, pesanError, withdrawFromVault } from '../../lib/contract-writes'
+import { lpPositionOf, vaultStats } from '../../lib/contract-reads'
+import { idr, raw as keRaw } from '../../lib/units'
 
 const PAGE_SIZE = 6
 const MIN_TX = 1_000_000
@@ -23,12 +29,32 @@ export default function LpApp() {
 }
 
 function VaultShell() {
-  const { vaultTvl, vaultOutstanding, lpPosition } = useStore()
+  const { vaultTvl, vaultOutstanding, lpPosition, syncLp } = useStore()
+  const { ready, authenticated, logout } = usePrivy()
+  const { login } = useLogin()
+  const addr = useWalletAddress()
   const utilization = (vaultOutstanding / vaultTvl) * 100
   const freeLiquidity = vaultTvl - vaultOutstanding
 
+  // langganan statistik vault & posisi dari chain saat wallet siap
+  useEffect(() => {
+    if (!addr) return
+    let hidup = true
+    Promise.all([vaultStats(), lpPositionOf(addr)])
+      .then(([s, p]) => {
+        if (hidup) syncLp(idr(s.totalAssets), idr(s.outstanding), idr(p))
+      })
+      .catch(() => {
+        /* alamat kontrak placeholder atau RPC gangguan — biarkan data saat ini */
+      })
+    return () => {
+      hidup = false
+    }
+  }, [addr, syncLp])
+
   return (
     <div className="min-h-[100dvh]">
+      <FaucetGate />
       <header className="border-b border-rule">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
           <div className="flex min-w-0 items-center gap-5">
@@ -39,7 +65,27 @@ function VaultShell() {
               Vault IDRX · {lp.name}
             </span>
           </div>
-          <Badge tone="ok">ERC-4626 · terbuka</Badge>
+          <div className="flex items-center gap-3">
+            {ready && !authenticated && (
+              <Btn variant="ghost" onClick={login}>
+                Masuk
+              </Btn>
+            )}
+            {ready && authenticated && (
+              <div className="flex items-center gap-3">
+                <span
+                  className="hidden font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 sm:block"
+                  title={addr}
+                >
+                  {addr ? shortHash(addr) : 'Menyiapkan wallet…'}
+                </span>
+                <Btn variant="ghost" onClick={logout}>
+                  Keluar
+                </Btn>
+              </div>
+            )}
+            <Badge tone="ok">ERC-4626 · terbuka</Badge>
+          </div>
         </div>
       </header>
 
@@ -83,7 +129,7 @@ function VaultShell() {
           <div className="space-y-8 lg:col-span-7">
             <section className="border border-ink bg-ink p-6 text-paper">
               <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-paper/60">
-                Posisi Anda · {lp.wallet} · sejak {lp.since}
+                Posisi Anda · {addr ? shortHash(addr) : lp.wallet} · sejak {lp.since}
               </p>
               <NumberFlow
                 value={lpPosition}
@@ -175,10 +221,20 @@ function parseAmount(raw: string): { ok: boolean; value: number; error?: string 
 }
 
 function DepositForm() {
-  const { lpDeposit } = useStore()
+  const { lpDeposit, syncLp } = useStore()
+  const signer = useSignerClient()
+  const addr = useWalletAddress()
   const [raw, setRaw] = useState('')
   const [busy, setBusy] = useState(false)
   const parsed = parseAmount(raw)
+
+  /** Setelah tx: catat riwayat lokal, lalu timpa statistik dengan kebenaran chain. */
+  const segarkan = async () => {
+    lpDeposit(parsed.value)
+    if (!addr) return
+    const [s, p] = await Promise.all([vaultStats(), lpPositionOf(addr)])
+    syncLp(idr(s.totalAssets), idr(s.outstanding), idr(p))
+  }
 
   return (
     <section className="border border-rule bg-paper p-6">
@@ -202,13 +258,24 @@ function DepositForm() {
         disabled={!parsed.ok || busy}
         onClick={async () => {
           setBusy(true)
-          await runTx('Menyetor ke vault', 2, () => {})
-          lpDeposit(parsed.value)
-          toast.success('Setoran tercatat', {
-            description: `IDRX ${parsed.value.toLocaleString('id-ID')} masuk vault. Share baru sudah di-mint.`,
-          })
-          setRaw('')
-          setBusy(false)
+          try {
+            if (!signer || !addr) {
+              toast.error('Wallet belum siap', { description: 'Masuk dulu, lalu coba lagi.' })
+              return
+            }
+            const nilai = keRaw(parsed.value)
+            await runTx('Menyetujui vault (approve)', 1, () => approveIdrx(signer, nilai))
+            await runTx('Menyetor ke vault', 1, () => depositToVault(signer, nilai, addr))
+            await segarkan()
+            toast.success('Setoran tercatat', {
+              description: `IDRX ${parsed.value.toLocaleString('id-ID')} masuk vault on-chain. Share baru sudah di-mint.`,
+            })
+            setRaw('')
+          } catch (e) {
+            toast.error('Setoran gagal', { description: pesanError(e) })
+          } finally {
+            setBusy(false)
+          }
         }}
       >
         {busy ? 'Memproses…' : 'Setor sekarang'}
@@ -218,7 +285,9 @@ function DepositForm() {
 }
 
 function WithdrawForm({ position, freeLiquidity }: { position: number; freeLiquidity: number }) {
-  const { lpWithdraw } = useStore()
+  const { lpWithdraw, syncLp } = useStore()
+  const signer = useSignerClient()
+  const addr = useWalletAddress()
   const [raw, setRaw] = useState('')
   const [busy, setBusy] = useState(false)
   const parsed = parseAmount(raw)
@@ -251,8 +320,8 @@ function WithdrawForm({ position, freeLiquidity }: { position: number; freeLiqui
       </Field>
       {overLiquidity && (
         <p className="mt-2 border border-hairline bg-paper-2 px-3 py-2 text-[12px] leading-snug text-ink-2">
-          Melebihi likuiditas bebas pool. Penarikan tetap bisa dilakukan dan akan diproses
-          di sweep tanggal 21 Okt berikutnya.
+          Melebihi likuiditas bebas pool. Kontrak tidak punya antrean — penarikan besar
+          diproses setelah sweep autodebet tanggal 21 mengisi kembali pool.
         </p>
       )}
       <Btn
@@ -261,19 +330,33 @@ function WithdrawForm({ position, freeLiquidity }: { position: number; freeLiqui
         disabled={!parsed.ok || overPosition || busy}
         onClick={async () => {
           setBusy(true)
-          await runTx('Menarik dari vault', 2, () => {})
-          const { queued } = lpWithdraw(parsed.value)
-          if (queued) {
-            toast.info('Penarikan masuk antrean sweep', {
-              description: 'Likuiditas pool sedang dipakai advance berjalan. Dana keluar setelah sweep 21 Okt.',
-            })
-          } else {
+          try {
+            if (!signer || !addr) {
+              toast.error('Wallet belum siap', { description: 'Masuk dulu, lalu coba lagi.' })
+              return
+            }
+            if (overLiquidity) {
+              /* kontrak tidak punya antrean: cukup catat rencana, tanpa tx */
+              lpWithdraw(parsed.value)
+              toast.info('Penarikan ditunda ke sweep', {
+                description: 'Likuiditas pool sedang dipakai advance berjalan. Coba lagi setelah sweep 21 Okt.',
+              })
+              setRaw('')
+              return
+            }
+            await runTx('Menarik dari vault', 1, () => withdrawFromVault(signer, keRaw(parsed.value), addr))
+            lpWithdraw(parsed.value)
+            const [s, p] = await Promise.all([vaultStats(), lpPositionOf(addr)])
+            syncLp(idr(s.totalAssets), idr(s.outstanding), idr(p))
             toast.success('Penarikan tercatat', {
-              description: `IDRX ${parsed.value.toLocaleString('id-ID')} dikirim ke wallet Anda.`,
+              description: `IDRX ${parsed.value.toLocaleString('id-ID')} dikirim ke wallet Anda on-chain.`,
             })
+            setRaw('')
+          } catch (e) {
+            toast.error('Penarikan gagal', { description: pesanError(e) })
+          } finally {
+            setBusy(false)
           }
-          setRaw('')
-          setBusy(false)
         }}
       >
         {busy ? 'Memproses…' : 'Tarik sekarang'}
