@@ -4,7 +4,7 @@
  * Ini jalur data terpisah dari bukti zkTLS — histori channel, bukan saldo.
  */
 
-import { assess, type Assessment, type BureauData } from './bureau'
+import { assess, type Assessment, type BureauData } from './bureau.ts'
 
 /** serverless functions di repo mock-adsense (deploy Vercel kedua) */
 export const MOCK_YT_BASE = 'https://cashy-web-mock-adsense.vercel.app'
