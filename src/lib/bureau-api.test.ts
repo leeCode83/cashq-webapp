@@ -66,6 +66,7 @@ describe('buildSnapshot', () => {
     const data = buildSnapshot(FIX_ANALYTICS, FIX_CHANNELS, uploads, REF)
     expect(data.revenueByMonth).toEqual([5984200, 6730500, 6412800, 7286100, 7918400, 8400000])
     expect(data.viewsByMonth[0]).toBe(618342)
+    expect(data.months).toEqual(['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'])
     expect(data.monthsActive).toBe(90) // 2019-03-14 s/d 2026-10-09
     expect(data.uploadsWeeks).toEqual({ total: 26, withUpload: 1 })
     expect(data.lateCount).toBe(0) // diisi pemanggil dari rapor on-chain

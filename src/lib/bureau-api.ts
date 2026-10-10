@@ -74,7 +74,7 @@ export function hitungKonsistensi(uploads: PlaylistItemList, ref: Date): { total
   return { total: 26, withUpload: pekan.size }
 }
 
-function angkaBaris(analytics: AnalyticsReport): { views: number[]; revenue: number[] } {
+function angkaBaris(analytics: AnalyticsReport): { views: number[]; revenue: number[]; months: string[] } {
   const nama = analytics.columnHeaders.map((h) => h.name)
   const iViews = nama.indexOf('views')
   const iRevenue = nama.indexOf('estimatedRevenue')
@@ -83,6 +83,7 @@ function angkaBaris(analytics: AnalyticsReport): { views: number[]; revenue: num
   return {
     views: rows.map((r) => Number(r[iViews])),
     revenue: rows.map((r) => Number(r[iRevenue])),
+    months: rows.map((r) => String(r[iMonth])),
   }
 }
 
@@ -92,11 +93,12 @@ export function buildSnapshot(
   uploads: PlaylistItemList,
   ref: Date = new Date(),
 ): BureauData {
-  const { views, revenue } = angkaBaris(analytics)
+  const { views, revenue, months } = angkaBaris(analytics)
   const publishedAt = channels.items[0]?.snippet?.publishedAt
   return {
     revenueByMonth: revenue,
     viewsByMonth: views,
+    months,
     uploadsWeeks: hitungKonsistensi(uploads, ref),
     monthsActive: publishedAt ? bulanSejak(publishedAt, ref) : 0,
     // rapor on-chain bukan bagian API YouTube — diisi pemanggil dari store

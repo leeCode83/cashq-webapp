@@ -6,11 +6,14 @@ import { Badge, Btn, Logo, Money, Rule } from '../../components/ui'
 import { FaucetGate } from '../../components/FaucetGate'
 import { Pagination } from '../../components/Pagination'
 import { Sparkline } from '../../components/Sparkline'
+import { BlurGate } from '../../components/BlurGate'
 import { StoreProvider } from '../../lib/store'
 import { useStore } from '../../lib/store-ctx'
 import { useWalletAddress } from '../../lib/privy'
+import { useBureau } from '../../lib/use-bureau'
+import { labelBulan } from '../../lib/bureau-api'
 import { advancesOf, creditOf, toUiAdvance } from '../../lib/contract-reads'
-import { bureau, creator, rapor, sepEarnings } from '../../lib/mock'
+import { creator, rapor, sepEarnings } from '../../lib/mock'
 import { fmtDate, pseudoHash, shortHash } from '../../lib/format'
 import AdvanceFlow from './AdvanceFlow'
 
@@ -214,30 +217,10 @@ function Ringkasan({ onGoAdvance }: { onGoAdvance: () => void }) {
 
         <section className="border border-rule bg-paper p-6">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-[16px] font-bold">Sinyal bureau</h2>
+            <h2 className="text-[16px] font-bold">Penilaian bureau</h2>
             <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-3">Histori OAuth Analytics</p>
           </div>
-          <Rule className="my-5" />
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div>
-              <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-2">Pendapatan 6 bulan</p>
-              <Sparkline values={bureau.trend} labels={bureau.trendMonths} className="mt-3" />
-            </div>
-            <dl className="space-y-3 text-[13.5px]">
-              {[
-                ['Arah tren', `Naik ${bureau.streakNaik} bulan beruntun`],
-                ['Volatilitas bulanan', `±${bureau.volatility.toLocaleString('id-ID')}%`],
-                ['Konsistensi upload', `${bureau.uploadConsistency} (${bureau.uploadPct.toLocaleString('id-ID')}%)`],
-                ['Invalid traffic', `${bureau.invalidTraffic.toLocaleString('id-ID')}% · sehat`],
-                ['Decay niche', bureau.nicheDecay],
-              ].map(([k, v]) => (
-                <div key={k} className="flex items-baseline justify-between gap-4 border-b border-hairline pb-2.5">
-                  <dt className="text-ink-2">{k}</dt>
-                  <dd className="text-right font-medium">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
+          <PenilaianBureau />
         </section>
       </div>
 
@@ -299,6 +282,112 @@ function WalletBalance() {
       prefix="IDRX "
       className="tnum mt-2 font-mono text-[26px] font-semibold"
     />
+  )
+}
+
+/* ---------- penilaian bureau (login-first) ---------- */
+
+function PenilaianBureau() {
+  const { ready, authenticated } = usePrivy()
+  const { status, snapshot, ulang } = useBureau(authenticated, rapor.late)
+
+  return (
+    <BlurGate active={ready && !authenticated}>
+      {ready && !authenticated ? (
+        <KerangkaBureau />
+      ) : status === 'ok' && snapshot ? (
+        <IsiPenilaian snapshot={snapshot} />
+      ) : (
+        <Rule className="my-5" />
+      )}
+      {ready && authenticated && status === 'loading' && (
+        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
+          Mengambil histori Analytics lewat service CashQ…
+        </p>
+      )}
+      {ready && authenticated && status === 'error' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="text-[13.5px] text-ink-2">Gagal mengambil penilaian bureau.</p>
+          <Btn variant="ghost" onClick={ulang}>
+            Coba lagi
+          </Btn>
+        </div>
+      )}
+    </BlurGate>
+  )
+}
+
+/** kerangka abstrak di balik blur sebelum user masuk — tanpa angka apa pun */
+function KerangkaBureau() {
+  return (
+    <div>
+      <Rule className="my-5" />
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div>
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-2">Pendapatan 6 bulan</p>
+          <div className="mt-4 space-y-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-2 bg-hairline" style={{ width: `${88 - i * 9}%` }} />
+            ))}
+          </div>
+        </div>
+        <dl className="space-y-3.5">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center justify-between gap-4 border-b border-hairline pb-2.5">
+              <div className="h-2.5 w-28 bg-hairline" />
+              <div className="h-2.5 w-16 bg-hairline" />
+            </div>
+          ))}
+        </dl>
+      </div>
+    </div>
+  )
+}
+
+function IsiPenilaian({ snapshot }: { snapshot: NonNullable<ReturnType<typeof useBureau>['snapshot']> }) {
+  const { data, assessment, meta } = snapshot
+  return (
+    <div>
+      <Rule className="my-5" />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-3">Skor bureau</p>
+          <p className="tnum mt-1 font-mono text-[clamp(1.7rem,3vw,2.3rem)] font-semibold tracking-[-0.02em]">
+            {assessment.score}
+          </p>
+          <p className="mt-1.5 text-[13px] text-ink-2">
+            Tier {assessment.tier} · rasio referensi{' '}
+            {(assessment.ratio * 100).toLocaleString('id-ID')}%
+            <span className="text-ink-3"> (informasi; batas cair ditetapkan kontrak)</span>
+          </p>
+        </div>
+        <div>
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink-2">Pendapatan 6 bulan</p>
+          <Sparkline
+            values={data.revenueByMonth}
+            labels={data.months?.map(labelBulan)}
+            className="mt-3"
+          />
+        </div>
+      </div>
+      <Rule className="my-5" />
+      <dl className="space-y-3 text-[13.5px]">
+        {assessment.reasons.map((r) => (
+          <div key={r.nama} className="flex items-baseline justify-between gap-4 border-b border-hairline pb-2.5">
+            <dt className="shrink-0 text-ink-2">{r.nama}</dt>
+            <dd className="flex items-baseline gap-3 text-right">
+              <span className="font-medium">{r.verdict}</span>
+              <span className="tnum w-12 shrink-0 text-right font-mono text-[11.5px] text-ink-3">
+                {r.poin}/{r.poinMaks}
+              </span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3">
+        Sumber: {meta.sumber} · ditarik {fmtDate(meta.diambilPada)}
+      </p>
+    </div>
   )
 }
 

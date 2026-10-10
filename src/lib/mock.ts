@@ -122,18 +122,6 @@ export const sepEarnings = {
 export const FEE_RATE = 0.0275
 export const MIN_ADVANCE = 500_000
 
-/** sinyal bureau, mode demo: penampil data saja */
-export const bureau = {
-  trend: [11_243_000, 12_805_000, 12_144_000, 13_918_000, 15_402_000, 18_742_000],
-  trendMonths: ['Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt'],
-  volatility: 8.4,
-  uploadConsistency: '22 dari 26 minggu',
-  uploadPct: 84.6,
-  invalidTraffic: 1.1,
-  nicheDecay: 'Stabil',
-  streakNaik: 4,
-}
-
 export const rapor = {
   late: 0,
   default: 0,
@@ -145,7 +133,7 @@ export const initialNotifs: Notif[] = [
   {
     id: 'N-41',
     title: 'Saldo final Sep 2026 sudah diposting Google',
-    body: 'IDRX 18.742.000 tercatat di halaman Pembayaran AdSense. Jendela advance terbuka sampai 20 Okt.',
+    body: 'IDRX 8.400.000 tercatat di halaman Pembayaran AdSense. Jendela advance terbuka sampai 20 Okt.',
     at: '2026-10-03T08:12:00+07:00',
     kind: 'info',
     read: false,

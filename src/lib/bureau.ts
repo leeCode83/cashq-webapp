@@ -12,6 +12,8 @@ export interface BureauData {
   revenueByMonth: number[]
   /** views per bulan, sejajar revenueByMonth */
   viewsByMonth: number[]
+  /** label bulan YYYY-MM sejajar deret di atas — pelengkap tampilan, tidak dipakai engine */
+  months?: string[]
   uploadsWeeks: { total: number; withUpload: number }
   /** usia channel dalam bulan */
   monthsActive: number
