@@ -7,6 +7,7 @@ import { useStore } from '../../lib/store-ctx'
 import type { Proof } from '../../lib/store-ctx'
 import { FEE_RATE, MIN_ADVANCE, sepEarnings, type Advance } from '../../lib/mock'
 import { fmtDate, pseudoHash, shortHash } from '../../lib/format'
+import { useWalletAddress } from '../../lib/privy'
 import {
   TAX_RATE_DEFAULT,
   ZK_SCHEMA_ID,
@@ -34,6 +35,7 @@ const toStoreProof = (raw: ZkProof, v: Extract<VerifyResult, { ok: true }>): Pro
 
 export default function AdvanceFlow() {
   const { proof, saveProof, advances, submitAdvance } = useStore()
+  const walletAddress = useWalletAddress()
   const [sealStage, setSealStage] = useState(-1)
   const [amount, setAmount] = useState('')
   const [step, setStep] = useState<1 | 2 | 3>(proof ? 2 : 1)
@@ -50,7 +52,7 @@ export default function AdvanceFlow() {
   const startSeal = async () => {
     setSealStage(0)
     try {
-      const raw = await launchVerification()
+      const raw = await launchVerification(walletAddress)
       setSealStage(1)
       const v = await verifyProof(raw)
       if (!v.ok) {

@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useLogin, usePrivy } from '@privy-io/react-auth'
 import NumberFlow from '@number-flow/react'
 import { Badge, Btn, Logo, Money, Rule } from '../../components/ui'
 import { Pagination } from '../../components/Pagination'
 import { Sparkline } from '../../components/Sparkline'
 import { StoreProvider } from '../../lib/store'
 import { useStore } from '../../lib/store-ctx'
+import { useWalletAddress } from '../../lib/privy'
 import { bureau, creator, rapor, sepEarnings } from '../../lib/mock'
 import { fmtDate, pseudoHash, shortHash } from '../../lib/format'
 import AdvanceFlow from './AdvanceFlow'
@@ -33,6 +35,9 @@ function KreatorShell() {
   const [tab, setTab] = useState<Tab>('ringkasan')
   const { walletBalance, notifs, markAllRead } = useStore()
   const [notifOpen, setNotifOpen] = useState(false)
+  const { ready, authenticated, logout } = usePrivy()
+  const { login } = useLogin()
+  const addr = useWalletAddress()
   const unread = notifs.filter((n) => !n.read).length
 
   return (
@@ -48,6 +53,24 @@ function KreatorShell() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            {ready && !authenticated && (
+              <Btn variant="ghost" onClick={login}>
+                Masuk
+              </Btn>
+            )}
+            {ready && authenticated && (
+              <div className="flex items-center gap-3">
+                <span
+                  className="hidden font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 sm:block"
+                  title={addr}
+                >
+                  {addr ? shortHash(addr) : 'Menyiapkan wallet…'}
+                </span>
+                <Btn variant="ghost" onClick={logout}>
+                  Keluar
+                </Btn>
+              </div>
+            )}
             <div className="relative">
               <button
                 className="border border-rule px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] hover:bg-paper-2"
@@ -82,7 +105,7 @@ function KreatorShell() {
             </div>
             <div className="hidden text-right md:block">
               <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-3">
-                Saldo wallet {creator.wallet}
+                Saldo wallet {addr ? shortHash(addr) : creator.wallet}
               </p>
               <NumberFlow
                 value={walletBalance}
@@ -134,6 +157,7 @@ function KreatorShell() {
 
 function Ringkasan({ onGoAdvance }: { onGoAdvance: () => void }) {
   const { proof, activeAdvance, advances } = useStore()
+  const addr = useWalletAddress()
   const paidCount = advances.filter((a) => a.status === 'LUNAS').length
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
@@ -201,7 +225,7 @@ function Ringkasan({ onGoAdvance }: { onGoAdvance: () => void }) {
       <div className="space-y-8 lg:col-span-4">
         <section className="border border-ink bg-ink p-6 text-paper">
           <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-paper/60">
-            Wallet {creator.wallet}
+            Wallet {addr ? shortHash(addr) : creator.wallet}
           </p>
           <WalletBalance />
           <p className="mt-3 font-mono text-[10.5px] text-paper/50">Siap ditarik kapan pun</p>
