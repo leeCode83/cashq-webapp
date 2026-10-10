@@ -122,6 +122,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const setWalletBalance = useCallback((v: number) => setWallet(v), [])
+
   const value = useMemo<Store>(
     () => ({
       walletBalance,
@@ -139,8 +141,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       lpDeposit,
       lpWithdraw,
       markAllRead,
+      setWalletBalance,
     }),
-    [walletBalance, advances, proof, notifs, vaultTvl, vaultOutstanding, lpPosition, lpTxsState, saveProof, submitAdvance, runPayoutSweep, lpDeposit, lpWithdraw, markAllRead],
+    [walletBalance, advances, proof, notifs, vaultTvl, vaultOutstanding, lpPosition, lpTxsState, saveProof, submitAdvance, runPayoutSweep, lpDeposit, lpWithdraw, markAllRead, setWalletBalance],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

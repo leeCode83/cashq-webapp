@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLogin, usePrivy } from '@privy-io/react-auth'
 import NumberFlow from '@number-flow/react'
 import { Badge, Btn, Logo, Money, Rule } from '../../components/ui'
+import { FaucetGate } from '../../components/FaucetGate'
 import { Pagination } from '../../components/Pagination'
 import { Sparkline } from '../../components/Sparkline'
 import { StoreProvider } from '../../lib/store'
@@ -42,6 +43,7 @@ function KreatorShell() {
 
   return (
     <div className="min-h-[100dvh]">
+      <FaucetGate />
       <header className="border-b border-rule">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
           <div className="flex min-w-0 items-center gap-5">

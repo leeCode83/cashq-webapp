@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Log } from 'viem'
 import { encodeAbiParameters, encodeEventTopics, parseAbiParameters, zeroAddress } from 'viem'
 import { vaultAbi } from './abis'
-import { advanceIdDariReceipt } from './contract-writes'
+import { advanceIdDariReceipt, pesanError } from './contract-writes'
 
 /** Log buatan dari event `Advanced` — encodeEventTopics memastikan topik valid. */
 function logAdvanced(id: bigint): Log {
@@ -33,5 +33,16 @@ describe('advanceIdDariReceipt', () => {
 
   it('error jelas bila event tidak ada', () => {
     expect(() => advanceIdDariReceipt({ logs: [] })).toThrow('Advanced')
+  })
+})
+
+describe('pesanError', () => {
+  it('prioritas revert reason kontrak', () => {
+    expect(pesanError({ details: 'payout sudah didanai' })).toBe('payout sudah didanai')
+  })
+
+  it('fallback ke shortMessage lalu teks generik', () => {
+    expect(pesanError({ shortMessage: 'kena gas' })).toBe('kena gas')
+    expect(pesanError(null)).toBe('Transaksi gagal — coba lagi')
   })
 })

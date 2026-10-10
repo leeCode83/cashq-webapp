@@ -15,6 +15,12 @@ async function konfirmasi(kirim: () => Promise<`0x${string}`>) {
   return publicClient.waitForTransactionReceipt({ hash })
 }
 
+/** Pesan siap-tampil dari error: revert reason kontrak dulu, lalu ringkasan viem. */
+export function pesanError(e: unknown): string {
+  const err = e as { details?: string; shortMessage?: string } | null
+  return err?.details || err?.shortMessage || 'Transaksi gagal — coba lagi'
+}
+
 /** Faucet: owner mencetak IDRX mock ke sebuah wallet. */
 export function mintIdrx(ke: string, jumlah: bigint) {
   const owner = ownerClient()

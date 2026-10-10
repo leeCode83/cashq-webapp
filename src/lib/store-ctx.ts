@@ -33,6 +33,8 @@ export interface Store {
   lpDeposit: (amount: number) => void
   lpWithdraw: (amount: number) => { queued: boolean }
   markAllRead: () => void
+  /** Sinkron saldo wallet dari hasil baca chain (faucet, advance, sweep). */
+  setWalletBalance: (v: number) => void
 }
 
 export const Ctx = createContext<Store | null>(null)
