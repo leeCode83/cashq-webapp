@@ -355,7 +355,10 @@ function ActiveAdvance({ advance }: { advance: Advance }) {
     }
     setPhase('jalan')
     try {
-      await runTx('Payout Google masuk wallet', 1, () => mintIdrx(walletAddress, raw(payoutNet)))
+      // record tanpa proof on-chain punya payoutNet 0 — lewati mint, sweep tetap jalan
+      if (payoutNet > 0) {
+        await runTx('Payout Google masuk wallet', 1, () => mintIdrx(walletAddress, raw(payoutNet)))
+      }
       await runTx('Autodebet pelunasan berjalan', 1, () => sweepAdvance(advance.onchainId!))
       runPayoutSweep(advance.id)
       setWalletBalance(idr(await idrxBalance(walletAddress)))

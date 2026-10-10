@@ -38,6 +38,8 @@ export interface Store {
   setWalletBalance: (v: number) => void
   /** Timpa statistik vault & posisi LP dengan hasil baca chain. */
   syncLp: (vaultTvl: number, vaultOutstanding: number, lpPosition: number) => void
+  /** Ganti record advance ber-onchainId dengan versi terbaru dari chain; seed mock dipertahankan. */
+  syncAdvances: (onchain: Advance[]) => void
 }
 
 export const Ctx = createContext<Store | null>(null)

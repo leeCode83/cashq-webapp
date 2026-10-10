@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLogin, usePrivy } from '@privy-io/react-auth'
 import NumberFlow from '@number-flow/react'
@@ -9,6 +9,7 @@ import { Sparkline } from '../../components/Sparkline'
 import { StoreProvider } from '../../lib/store'
 import { useStore } from '../../lib/store-ctx'
 import { useWalletAddress } from '../../lib/privy'
+import { advancesOf, creditOf, toUiAdvance } from '../../lib/contract-reads'
 import { bureau, creator, rapor, sepEarnings } from '../../lib/mock'
 import { fmtDate, pseudoHash, shortHash } from '../../lib/format'
 import AdvanceFlow from './AdvanceFlow'
@@ -34,12 +35,28 @@ const TABS: [Tab, string][] = [
 
 function KreatorShell() {
   const [tab, setTab] = useState<Tab>('ringkasan')
-  const { walletBalance, notifs, markAllRead } = useStore()
+  const { walletBalance, notifs, markAllRead, syncAdvances } = useStore()
   const [notifOpen, setNotifOpen] = useState(false)
   const { ready, authenticated, logout } = usePrivy()
   const { login } = useLogin()
   const addr = useWalletAddress()
   const unread = notifs.filter((n) => !n.read).length
+
+  // langganan riwayat advance & rapor dari chain saat wallet siap
+  useEffect(() => {
+    if (!addr) return
+    let hidup = true
+    Promise.all([advancesOf(addr), creditOf(addr).catch(() => [])])
+      .then(([onchain, rapor]) => {
+        if (hidup) syncAdvances(onchain.map((a) => toUiAdvance(a, rapor)))
+      })
+      .catch(() => {
+        /* alamat kontrak placeholder atau RPC gangguan — biarkan data saat ini */
+      })
+    return () => {
+      hidup = false
+    }
+  }, [addr, syncAdvances])
 
   return (
     <div className="min-h-[100dvh]">

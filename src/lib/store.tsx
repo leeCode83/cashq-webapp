@@ -132,6 +132,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLpPosition(posisi)
   }, [])
 
+  /** record wizard punya onchainId → diganti versi chain; seed mock (tanpa onchainId) tetap */
+  const syncAdvances = useCallback((onchain: Advance[]) => {
+    setAdvances((prev) => [...onchain, ...prev.filter((a) => a.onchainId === undefined)])
+  }, [])
+
   const value = useMemo<Store>(
     () => ({
       walletBalance,
@@ -151,8 +156,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markAllRead,
       setWalletBalance,
       syncLp,
+      syncAdvances,
     }),
-    [walletBalance, advances, proof, notifs, vaultTvl, vaultOutstanding, lpPosition, lpTxsState, saveProof, submitAdvance, runPayoutSweep, lpDeposit, lpWithdraw, markAllRead, setWalletBalance, syncLp],
+    [walletBalance, advances, proof, notifs, vaultTvl, vaultOutstanding, lpPosition, lpTxsState, saveProof, submitAdvance, runPayoutSweep, lpDeposit, lpWithdraw, markAllRead, setWalletBalance, syncLp, syncAdvances],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

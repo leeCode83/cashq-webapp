@@ -6,6 +6,9 @@ import type { Address } from 'viem'
 import { idrxAbi, registryAbi, vaultAbi } from './abis'
 import { publicClient } from './chain'
 import { ADDRESSES } from './contracts'
+import { monthLabel } from './format'
+import type { Advance } from './mock'
+import { idr } from './units'
 
 /** Saldo IDRX wallet (unit mentah). */
 export function idrxBalance(alamat: string) {
@@ -101,4 +104,36 @@ export function creditOf(who: string) {
     functionName: 'getCredit',
     args: [who as Address],
   })
+}
+
+/** Baris rapor pelunasan — diakses posisi (nama komponen tak dijamin parser). */
+export interface BarisRapor {
+  advanceId: bigint
+  amount: bigint
+  at: bigint
+}
+
+/**
+ * Peta advance on-chain → record UI. `saldoFinal`/`pajakEst` tidak ada di
+ * kontrak (milik bukti zkTLS) → nol untuk record yang tidak lewat wizard.
+ * earningsMonth diambil dari dueAt: payout tgl 21 = penghasilan bulan sebelumnya.
+ */
+export function toUiAdvance(a: OnchainAdvance, rapor: readonly BarisRapor[]): Advance {
+  const lunas = rapor.find((r) => Number(r.advanceId) === a.id)
+  const payout = new Date(Number(a.dueAt) * 1000)
+  const bulanSebelum = new Date(payout.getFullYear(), payout.getMonth() - 1, 1).toISOString()
+  return {
+    id: `ADV-${String(a.id).padStart(2, '0')}`,
+    onchainId: a.id,
+    earningsMonth: monthLabel(bulanSebelum),
+    saldoFinal: 0,
+    pajakEst: 0,
+    principal: idr(a.principal),
+    fee: idr(a.fee),
+    sweptAt: (lunas ? new Date(Number(lunas.at) * 1000) : payout).toISOString(),
+    requestedAt: payout.toISOString(),
+    nullifier: a.nullifier,
+    onTime: Boolean(lunas),
+    status: a.swept ? 'LUNAS' : 'AKTIF',
+  }
 }
