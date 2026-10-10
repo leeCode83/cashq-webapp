@@ -5,7 +5,19 @@
 
 import { encodeAbiParameters, keccak256, recoverAddress, stringToHex } from 'viem'
 import type { Address, Hex } from 'viem'
-import TransgateConnect from '@zkpass/transgate-js-sdk'
+import TransgateConnectModule from '@zkpass/transgate-js-sdk'
+
+/**
+ * Class TransgateConnect dari SDK — interop default-import CJS berbeda antar bundler:
+ * kadang class berada di `.default`, kadang sudah di module itu sendiri. Ambil yang memang constructor.
+ */
+interface TransgateInstance {
+  isTransgateAvailable(): Promise<boolean>
+  launch(schemaId: string, address?: string): Promise<unknown>
+}
+type TransgateCtor = new (appid: string) => TransgateInstance
+const TransgateConnect = ((TransgateConnectModule as unknown as { default?: TransgateCtor }).default ??
+  TransgateConnectModule) as TransgateCtor
 
 /** tautan pemasangan ekstensi TransGate di Chrome Web Store */
 export const TRANSGATE_INSTALL_URL =
