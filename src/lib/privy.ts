@@ -65,6 +65,15 @@ export function useSignerClient(): Signer | null {
               return toHex(await publicClient.getGasPrice())
             case 'eth_maxPriorityFeePerGas':
               return toHex(PRIORITAS_TIPI)
+            case 'eth_getTransactionCount': {
+              // nonce dibaca dari node publik, 'pending' supaya tx beruntun tak tabrakan
+              const alamat = (p?.from as string | undefined) ?? akun.address
+              return toHex(await publicClient.getTransactionCount({ address: alamat as Address, blockTag: 'pending' }))
+            }
+            case 'eth_getBalance':
+              return toHex(await publicClient.getBalance({ address: ((p?.from ?? akun.address) as Address) }))
+            case 'eth_blockNumber':
+              return toHex(await publicClient.getBlockNumber())
             case 'eth_estimateGas':
               return toHex(
                 await publicClient.estimateGas({
