@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { NumericFormat } from 'react-number-format'
 import { Link } from 'react-router-dom'
 
 /** Wordmark CashQ: "Cash" grotesk + glyph Q digambar sendiri, ekornya panah lompat antre. */
@@ -88,6 +89,33 @@ export function Money({ value, className, signed = false }: { value: number; cla
       {signed && (value > 0 ? '+' : value < 0 ? '−' : '')}
       IDRX {Math.abs(Math.round(value)).toLocaleString('id-ID')}
     </span>
+  )
+}
+
+/** input nominal Rupiah: tampil berformat (10.000), callback tetap menerima angka mentah ("10000");
+ * titik = pemisah ribuan gaya id-ID, koma ditolak karena Rupiah selalu bulat */
+export function AmountInput({
+  value,
+  onValueChange,
+  ...rest
+}: {
+  value: string
+  onValueChange: (raw: string) => void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type' | 'defaultValue'>) {
+  return (
+    <NumericFormat
+      inputMode="numeric"
+      autoComplete="off"
+      placeholder="0"
+      value={value}
+      valueIsNumericString
+      thousandSeparator="."
+      decimalSeparator=","
+      decimalScale={0}
+      allowNegative={false}
+      onValueChange={(v) => onValueChange(v.value)}
+      {...rest}
+    />
   )
 }
 
