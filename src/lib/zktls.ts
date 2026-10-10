@@ -1,9 +1,11 @@
 // Service zkTLS CashQ — verifikasi bukti zkPass TransGate + kebijakan advance.
 // Sumber aturan: docs/42-cashq.md (batas keras di bawah pajak, baris 74).
-// Algoritma tanda tangan mengikuti docs zkPass "Generate proof and verify (EVM)":
-// paramsHash = keccak256(abiEncode([taskId, schemaId, ...])) lalu recover alamat penandatangan.
+// Algoritma tanda tangan (diverifikasi empiris terhadap proof asli, Okt 2026):
+// paramsHash = keccak256(abiEncode([stringToHex(taskId), stringToHex(schemaId), ...])),
+// node zkPass menandatangani hash itu dengan semantik EIP-191 (personal message) —
+// recovery memakai recoverMessageAddress, bukan recoverAddress mentah.
 
-import { encodeAbiParameters, keccak256, recoverAddress, stringToHex } from 'viem'
+import { encodeAbiParameters, keccak256, recoverMessageAddress, stringToHex } from 'viem'
 import type { Address, Hex } from 'viem'
 import TransgateConnectModule from '@zkpass/transgate-js-sdk'
 
@@ -121,26 +123,11 @@ export const verifyProof = async (
         proof.validatorAddress as Address,
       ]),
     )
-    const signedAllocator = await recoverAddress({ hash: allocHash, signature: proof.allocatorSignature as Hex })
-    if (!eqAddr(signedAllocator, allocator)) {
-      // TODO(debug): diagnostik sementara untuk mencocokkan algoritma dengan infra zkPass — hapus setelah ketemu
-      console.warn(
-        '[zktls-debug]',
-        JSON.stringify({
-          recoveredAllocator: signedAllocator,
-          expectedAllocator: allocator,
-          allocHash,
-          taskId: proof.taskId,
-          schemaId: ZK_SCHEMA_ID,
-          validatorAddress: proof.validatorAddress,
-          allocatorSignature: proof.allocatorSignature,
-          uHash: proof.uHash,
-          publicFieldsHash: proof.publicFieldsHash,
-          recipient: proof.recipient ?? null,
-        }),
-      )
-      return { ok: false, reason: 'tanda-tangan-allocator-tidak-valid' }
-    }
+    const signedAllocator = await recoverMessageAddress({
+      message: { raw: allocHash },
+      signature: proof.allocatorSignature as Hex,
+    })
+    if (!eqAddr(signedAllocator, allocator)) return { ok: false, reason: 'tanda-tangan-allocator-tidak-valid' }
 
     const valHash = proof.recipient
       ? keccak256(
@@ -155,9 +142,27 @@ export const verifyProof = async (
       : keccak256(
           encodeAbiParameters([b32, b32, b32, b32], [task, schema, proof.uHash as Hex, proof.publicFieldsHash as Hex]),
         )
-    const signedValidator = await recoverAddress({ hash: valHash, signature: proof.validatorSignature as Hex })
-    if (!eqAddr(signedValidator, proof.validatorAddress))
+    const signedValidator = await recoverMessageAddress({
+      message: { raw: valHash },
+      signature: proof.validatorSignature as Hex,
+    })
+    if (!eqAddr(signedValidator, proof.validatorAddress)) {
+      // TODO(debug): diagnostik sementara — hapus setelah jalur validator terbukti dengan proof asli
+      console.warn(
+        '[zktls-debug-validator]',
+        JSON.stringify({
+          recoveredValidator: signedValidator,
+          claimedValidator: proof.validatorAddress,
+          valHash,
+          taskId: proof.taskId,
+          uHash: proof.uHash,
+          publicFieldsHash: proof.publicFieldsHash,
+          recipient: proof.recipient ?? null,
+          validatorSignature: proof.validatorSignature,
+        }),
+      )
       return { ok: false, reason: 'tanda-tangan-validator-tidak-valid' }
+    }
   } catch {
     return { ok: false, reason: 'bentuk-bukti-tidak-valid' }
   }
