@@ -7,7 +7,10 @@ import LpApp from './pages/lp/LpApp'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
+  // block body: efek tidak boleh mengembalikan nilai (scrollTo bisa non-undefined di sebagian browser)
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
   return null
 }
 
