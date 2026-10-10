@@ -122,7 +122,25 @@ export const verifyProof = async (
       ]),
     )
     const signedAllocator = await recoverAddress({ hash: allocHash, signature: proof.allocatorSignature as Hex })
-    if (!eqAddr(signedAllocator, allocator)) return { ok: false, reason: 'tanda-tangan-allocator-tidak-valid' }
+    if (!eqAddr(signedAllocator, allocator)) {
+      // TODO(debug): diagnostik sementara untuk mencocokkan algoritma dengan infra zkPass — hapus setelah ketemu
+      console.warn(
+        '[zktls-debug]',
+        JSON.stringify({
+          recoveredAllocator: signedAllocator,
+          expectedAllocator: allocator,
+          allocHash,
+          taskId: proof.taskId,
+          schemaId: ZK_SCHEMA_ID,
+          validatorAddress: proof.validatorAddress,
+          allocatorSignature: proof.allocatorSignature,
+          uHash: proof.uHash,
+          publicFieldsHash: proof.publicFieldsHash,
+          recipient: proof.recipient ?? null,
+        }),
+      )
+      return { ok: false, reason: 'tanda-tangan-allocator-tidak-valid' }
+    }
 
     const valHash = proof.recipient
       ? keccak256(
