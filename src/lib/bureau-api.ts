@@ -34,7 +34,20 @@ export interface PlaylistItemList {
 export interface Snapshot {
   data: BureauData
   assessment: Assessment
-  meta: { diambilPada: string; sumber: string }
+  meta: { diambilPada: string; sumber: string; profil: number | null }
+}
+
+/** banyak profil data yang dimiliki mock server */
+export const JUMLAH_PROFIL = 20
+
+/** FNV-1a 32-bit — ofset profil per akun supaya akun berbeda tak identik */
+export function hashSeed(str: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
 }
 
 const BULAN_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
@@ -120,21 +133,25 @@ const QUERY_REPORTS =
  * Satu snapshot penilaian: tarik Analytics + channel, lalu playlistItems dari
  * uploads playlist channel tersebut (rantai asli Data API), rakit BureauData,
  * dan nilai dengan engine. `lateCount` disuntik dari rapor on-chain store.
+ * `profil` eksplisit diteruskan ke mock supaya ketiga endpoint satu snapshot
+ * konsisten satu profil; dibiarkan undefined untuk rotasi waktu di mock.
  */
-export async function fetchSnapshot(lateCount = 0, ref: Date = new Date()): Promise<Snapshot> {
-  const analytics = (await ambilJson(QUERY_REPORTS)) as AnalyticsReport
-  const channels = (await ambilJson('/api/youtube/v3/channels?part=snippet,contentDetails,statistics&mine=true')) as ChannelList
+export async function fetchSnapshot(lateCount = 0, profil?: number): Promise<Snapshot> {
+  const suf = profil === undefined ? '' : `&profil=${profil}`
+  const analytics = (await ambilJson(QUERY_REPORTS + suf)) as AnalyticsReport
+  const channels = (await ambilJson('/api/youtube/v3/channels?part=snippet,contentDetails,statistics&mine=true' + suf)) as ChannelList
   const playlist = channels.items[0]?.contentDetails?.relatedPlaylists?.uploads
   if (!playlist) throw new Error('mock YouTube: uploads playlist tidak ditemukan')
-  const uploads = (await ambilJson(`/api/youtube/v3/playlistItems?part=snippet&playlistId=${playlist}&maxResults=50`)) as PlaylistItemList
+  const uploads = (await ambilJson(`/api/youtube/v3/playlistItems?part=snippet&playlistId=${playlist}&maxResults=50${suf}`)) as PlaylistItemList
 
-  const data = { ...buildSnapshot(analytics, channels, uploads, ref), lateCount }
+  const data = { ...buildSnapshot(analytics, channels, uploads), lateCount }
   return {
     data,
     assessment: assess(data),
     meta: {
       diambilPada: new Date().toISOString(),
       sumber: 'mock YouTube Analytics + Data API (cashy-web-mock-adsense.vercel.app)',
+      profil: profil ?? null,
     },
   }
 }

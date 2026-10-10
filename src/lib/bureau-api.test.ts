@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSnapshot, hitungKonsistensi, labelBulan, type AnalyticsReport, type ChannelList, type PlaylistItemList } from './bureau-api'
+import { buildSnapshot, hashSeed, hitungKonsistensi, labelBulan, type AnalyticsReport, type ChannelList, type PlaylistItemList } from './bureau-api'
 
 // fixture menyalin respons live mock YouTube (terverifikasi via curl 10 Okt 2026)
 const FIX_ANALYTICS: AnalyticsReport = {
@@ -33,6 +33,18 @@ describe('labelBulan', () => {
   it('menerjemahkan YYYY-MM ke singkatan bulan Indonesia', () => {
     expect(labelBulan('2026-04')).toBe('Apr')
     expect(labelBulan('2026-12')).toBe('Des')
+  })
+})
+
+describe('hashSeed', () => {
+  it('deterministik, sensitif input, dan berada di rentang uint32', () => {
+    expect(hashSeed('0xabc')).toBe(hashSeed('0xabc'))
+    expect(hashSeed('0xabc')).not.toBe(hashSeed('0xabd'))
+    for (const s of ['', 'akun-a', '0xffffffffffffffff']) {
+      const h = hashSeed(s)
+      expect(h).toBeGreaterThanOrEqual(0)
+      expect(h).toBeLessThanOrEqual(0xffffffff)
+    }
   })
 })
 

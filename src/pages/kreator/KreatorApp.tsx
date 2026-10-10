@@ -289,7 +289,8 @@ function WalletBalance() {
 
 function PenilaianBureau() {
   const { ready, authenticated } = usePrivy()
-  const { status, snapshot, ulang } = useBureau(authenticated, rapor.late)
+  const addr = useWalletAddress()
+  const { status, snapshot, ulang } = useBureau(authenticated, rapor.late, addr)
 
   return (
     <BlurGate active={ready && !authenticated}>
