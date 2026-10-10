@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Badge, Btn, Field, Money, Rule } from '../../components/ui'
+import { AmountInput, Badge, Btn, Field, Money, Rule } from '../../components/ui'
 import { Stamp } from '../../components/Stamp'
 import { runTx } from '../../lib/tx'
 import { useStore } from '../../lib/store-ctx'
@@ -139,7 +139,7 @@ export default function AdvanceFlow() {
             </div>
           </dl>
           <Rule className="my-5" />
-          <AmountInput value={amount} onChange={setAmount} limit={proof.limit} />
+          <AmountField value={amount} onChange={setAmount} limit={proof.limit} />
         </div>
         <div className="mt-5 flex justify-between gap-3">
           <Btn variant="ghost" onClick={() => setStep(1)}>Kembali</Btn>
@@ -249,7 +249,7 @@ function parseAmount(raw: string, limit: number): { ok: boolean; value: number; 
   return { ok: true, value: v }
 }
 
-function AmountInput({ value, onChange, limit }: { value: string; onChange: (v: string) => void; limit: number }) {
+function AmountField({ value, onChange, limit }: { value: string; onChange: (v: string) => void; limit: number }) {
   const parsed = parseAmount(value, limit)
   const setPct = (p: number) => onChange(String(Math.round((limit * p) / 100 / 1000) * 1000))
   return (
@@ -259,14 +259,11 @@ function AmountInput({ value, onChange, limit }: { value: string; onChange: (v: 
         error={parsed.error || undefined}
         hint="Angka bulat Rupiah. Fee dihitung dari nominal ini."
       >
-        <input
+        <AmountInput
           className="input-line tnum w-full max-w-xs font-mono text-[20px] font-semibold"
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="0"
           value={value}
           aria-invalid={!parsed.ok && value !== ''}
-          onChange={(e) => onChange(e.target.value)}
+          onValueChange={onChange}
         />
       </Field>
       <div className="mt-3 flex flex-wrap gap-2">

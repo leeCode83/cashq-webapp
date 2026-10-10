@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import NumberFlow from '@number-flow/react'
 import { toast } from 'sonner'
-import { Badge, Btn, Field, Logo, Money, Rule } from '../../components/ui'
+import { AmountInput, Badge, Btn, Field, Logo, Money, Rule } from '../../components/ui'
 import { Pagination } from '../../components/Pagination'
 import { Sparkline } from '../../components/Sparkline'
 import { StoreProvider } from '../../lib/store'
@@ -189,14 +189,11 @@ function DepositForm() {
         error={parsed.error || undefined}
         hint="Mint share ERC-4626 pada harga pool saat ini."
       >
-        <input
+        <AmountInput
           className="input-line tnum w-full font-mono text-[18px] font-semibold"
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="0"
           value={raw}
           aria-invalid={!parsed.ok && raw !== ''}
-          onChange={(e) => setRaw(e.target.value)}
+          onValueChange={setRaw}
         />
       </Field>
       <Btn
@@ -245,14 +242,11 @@ function WithdrawForm({ position, freeLiquidity }: { position: number; freeLiqui
             : `Posisi IDRX ${position.toLocaleString('id-ID')} · likuiditas bebas IDRX ${freeLiquidity.toLocaleString('id-ID')}.`
         }
       >
-        <input
+        <AmountInput
           className="input-line tnum w-full font-mono text-[18px] font-semibold"
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="0"
           value={raw}
           aria-invalid={(!parsed.ok && raw !== '') || overPosition}
-          onChange={(e) => setRaw(e.target.value)}
+          onValueChange={setRaw}
         />
       </Field>
       {overLiquidity && (
