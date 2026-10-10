@@ -10,6 +10,7 @@ import { fmtDate, pseudoHash, shortHash } from '../../lib/format'
 import {
   TAX_RATE_DEFAULT,
   ZK_SCHEMA_ID,
+  decideFromProof,
   failReasonText,
   launchVerification,
   maxAdvance,
@@ -38,6 +39,8 @@ export default function AdvanceFlow() {
   const [step, setStep] = useState<1 | 2 | 3>(proof ? 2 : 1)
   const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
+  /** bukti mentah untuk gerbang submit — terpisah dari Proof store yang sudah dipetakan */
+  const [rawProof, setRawProof] = useState<ZkProof | null>(null)
   /** advance yang sedang dilihat; bertahan setelah lunas agar berita acara tetap tampil */
   const [viewedId, setViewedId] = useState<string | null>(null)
 
@@ -56,6 +59,7 @@ export default function AdvanceFlow() {
         return
       }
       saveProof(toStoreProof(raw, v))
+      setRawProof(raw)
       setSealStage(-1)
       toast.success('Saldo final tersegel', {
         description: 'Bukti zkTLS sah dan menempel ke sesi AdSense Anda. Nullifier siap dicatat di registri.',
@@ -201,6 +205,17 @@ export default function AdvanceFlow() {
             disabled={!agreed || busy}
             onClick={async () => {
               setBusy(true)
+              /* gerbang trust boundary: keputusan hanya dari proof yang diverifikasi ulang */
+              const d = rawProof ? await decideFromProof(rawProof, n) : null
+              if (!d || !d.approved) {
+                setBusy(false)
+                const why =
+                  d?.reason === 'melebihi-batas'
+                    ? `Melebihi batas cair. Maksimum IDRX ${d.max.toLocaleString('id-ID')} (90% saldo setelah pajak).`
+                    : failReasonText['bentuk-bukti-tidak-valid']
+                toast.error('Advance tidak disetujui', { description: why })
+                return
+              }
               await runTx('Menulis advance on-chain', 3, () => {})
               /* proof pasti ada: langkah 3 hanya dicapai dari langkah 2 yang menuntut proof */
               const rec = submitAdvance(n, proof!)
