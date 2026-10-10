@@ -145,11 +145,23 @@
       "skillPath": "skills/pick-ui-library/SKILL.md",
       "computedHash": "95f37cddc1c5f7cf5c60c8f8f07c938f2ddd1a70dd45f50c37e7e522fcde5bb9"
     },
+    "pitch-deck": {
+      "source": "anthropics/financial-services",
+      "sourceType": "github",
+      "skillPath": "plugins/vertical-plugins/investment-banking/skills/pitch-deck/SKILL.md",
+      "computedHash": "d468ac38a080a7361efa7b03de5123cd47d16856521bce2be1f0b689dfb30e02"
+    },
     "redesign-existing-projects": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",
       "skillPath": "skills/redesign-skill/SKILL.md",
       "computedHash": "47eced3e960a2c961d3cbee11fa1216264f589344b586a5cbd03967cd6b9c54b"
+    },
+    "startup-pitch-contest": {
+      "source": "samber/dev-event-organizer-skills",
+      "sourceType": "github",
+      "skillPath": "skills/startup-pitch-contest/SKILL.md",
+      "computedHash": "cc35b5f923ff225afd4ee2d9e53eb5f5d5f27311c1bbb2dc1ed2f3be778231e3"
     }
   }
 }
