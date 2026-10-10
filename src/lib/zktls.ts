@@ -146,23 +146,8 @@ export const verifyProof = async (
       message: { raw: valHash },
       signature: proof.validatorSignature as Hex,
     })
-    if (!eqAddr(signedValidator, proof.validatorAddress)) {
-      // TODO(debug): diagnostik sementara — hapus setelah jalur validator terbukti dengan proof asli
-      console.warn(
-        '[zktls-debug-validator]',
-        JSON.stringify({
-          recoveredValidator: signedValidator,
-          claimedValidator: proof.validatorAddress,
-          valHash,
-          taskId: proof.taskId,
-          uHash: proof.uHash,
-          publicFieldsHash: proof.publicFieldsHash,
-          recipient: proof.recipient ?? null,
-          validatorSignature: proof.validatorSignature,
-        }),
-      )
+    if (!eqAddr(signedValidator, proof.validatorAddress))
       return { ok: false, reason: 'tanda-tangan-validator-tidak-valid' }
-    }
   } catch {
     return { ok: false, reason: 'bentuk-bukti-tidak-valid' }
   }
