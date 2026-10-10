@@ -93,7 +93,13 @@ export function useSignerClient(): Signer | null {
               return hash
             }
             default:
-              throw new Error(`Metode ${args.method} tidak didukung untuk wallet embedded`)
+              // metode baca lain (getBlockByNumber, call, dsb.) → node publik;
+              // satu-satunya yang wajib ke wallet adalah eth_sendTransaction di atas.
+              // cast: tipe request viem union literal — delegasi butuh string bebas
+              return (publicClient.request as (a: { method: string; params?: unknown }) => Promise<unknown>)({
+                method: args.method,
+                params: args.params,
+              })
           }
         },
       }
