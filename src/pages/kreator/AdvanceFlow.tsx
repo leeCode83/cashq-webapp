@@ -8,7 +8,7 @@ import type { Proof } from '../../lib/store-ctx'
 import { FEE_RATE, MIN_ADVANCE, sepEarnings, type Advance } from '../../lib/mock'
 import { fmtDate, shortHash } from '../../lib/format'
 import { useSignerClient, useWalletAddress } from '../../lib/privy'
-import { approveIdrx, pesanError, requestAdvanceTx } from '../../lib/contract-writes'
+import { approveIdrx, mintIdrx, pesanError, requestAdvanceTx, sweepAdvance } from '../../lib/contract-writes'
 import { idrxBalance } from '../../lib/contract-reads'
 import { dueAtPayout } from '../../lib/payout'
 import { feeOf, idr, raw } from '../../lib/units'
@@ -337,20 +337,36 @@ function FlowHeading({ step, title }: { step: 1 | 2 | 3; title: string }) {
 /* ---------- advance aktif + autodebet ---------- */
 
 function ActiveAdvance({ advance }: { advance: Advance }) {
-  const { runPayoutSweep } = useStore()
+  const { runPayoutSweep, setWalletBalance } = useStore()
+  const walletAddress = useWalletAddress()
   const [phase, setPhase] = useState<'menunggu' | 'jalan' | 'lunas'>('menunggu')
   const payoutNet = advance.saldoFinal - advance.pajakEst
   const debit = advance.principal + advance.fee
 
+  /** "Lompat ke 21 Okt": payout mendarat (mint owner) lalu autodebet (sweep owner). */
   const warp = async () => {
+    if (!walletAddress || advance.onchainId === undefined) {
+      toast.error('Tidak bisa disweep', {
+        description: advance.onchainId === undefined
+          ? 'Advance ini masih data demo — ajukan advance baru lewat wizard.'
+          : 'Wallet masih disiapkan — coba lagi sesaat.',
+      })
+      return
+    }
     setPhase('jalan')
-    await runTx('Payout Google masuk wallet', 2, () => {})
-    await runTx('Autodebet pelunasan berjalan', 2, () => {})
-    runPayoutSweep(advance.id)
-    toast.success('Advance lunas', {
-      description: 'Autodebet selesai. Rapor tepat waktu ke-12 tercatat on-chain.',
-    })
-    setPhase('lunas')
+    try {
+      await runTx('Payout Google masuk wallet', 1, () => mintIdrx(walletAddress, raw(payoutNet)))
+      await runTx('Autodebet pelunasan berjalan', 1, () => sweepAdvance(advance.onchainId!))
+      runPayoutSweep(advance.id)
+      setWalletBalance(idr(await idrxBalance(walletAddress)))
+      toast.success('Advance lunas', {
+        description: 'Autodebet on-chain selesai. Rapor tepat waktu tercatat di vault.',
+      })
+      setPhase('lunas')
+    } catch (e) {
+      setPhase('menunggu')
+      toast.error('Pelunasan gagal', { description: pesanError(e) })
+    }
   }
 
   const stops = useMemo(
