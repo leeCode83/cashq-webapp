@@ -182,7 +182,8 @@ export default function AdvanceFlow() {
             onClick={async () => {
               setBusy(true)
               await runTx('Menulis advance on-chain', 3, () => {})
-              const rec = submitAdvance(n)
+              /* proof pasti ada: langkah 3 hanya dicapai dari langkah 2 yang menuntut proof */
+              const rec = submitAdvance(n, proof!)
               setViewedId(rec.id)
               toast.success(`${rec.id} cair ke wallet`, {
                 description: 'Saldo wallet Anda sudah diperbarui. Pelunasan otomatis dijadwalkan 21 Okt.',
