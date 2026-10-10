@@ -35,13 +35,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * Catat advance baru: tambah record AKTIF, kirim principal ke wallet, jadwalkan autodebet.
    * @param principal nominal yang diterima kreator (IDRX), fee 2,75% dihitung dari sini
    * @param basis saldo final + pajak ter-attest dari bukti zkTLS — sumber angka record
+   * @param onchain data nyata dari vault (id advance & fee) bila sudah on-chain
    */
   const submitAdvance = useCallback(
-    (principal: number, basis: Pick<Proof, 'saldoFinal' | 'pajakEst'>) => {
-      const fee = Math.round(principal * 0.0275)
+    (principal: number, basis: Pick<Proof, 'saldoFinal' | 'pajakEst'>, onchain?: { id: number; fee: number }) => {
+      const fee = onchain?.fee ?? Math.round(principal * 0.0275)
       const id = `ADV-09-26`
       const record: Advance = {
         id,
+        onchainId: onchain?.id,
         earningsMonth: sepEarnings.month,
         saldoFinal: basis.saldoFinal,
         pajakEst: basis.pajakEst,

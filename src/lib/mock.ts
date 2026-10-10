@@ -7,6 +7,8 @@ export type AdvanceStatus = 'LUNAS' | 'AKTIF'
 
 export interface Advance {
   id: string
+  /** id advance di vault on-chain (index `advances(id)`), bila sudah on-chain */
+  onchainId?: number
   /** bulan penghasilan yang di-advance */
   earningsMonth: string
   saldoFinal: number

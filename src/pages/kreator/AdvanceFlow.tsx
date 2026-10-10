@@ -6,8 +6,12 @@ import { runTx } from '../../lib/tx'
 import { useStore } from '../../lib/store-ctx'
 import type { Proof } from '../../lib/store-ctx'
 import { FEE_RATE, MIN_ADVANCE, sepEarnings, type Advance } from '../../lib/mock'
-import { fmtDate, pseudoHash, shortHash } from '../../lib/format'
-import { useWalletAddress } from '../../lib/privy'
+import { fmtDate, shortHash } from '../../lib/format'
+import { useSignerClient, useWalletAddress } from '../../lib/privy'
+import { approveIdrx, pesanError, requestAdvanceTx } from '../../lib/contract-writes'
+import { idrxBalance } from '../../lib/contract-reads'
+import { dueAtPayout } from '../../lib/payout'
+import { feeOf, idr, raw } from '../../lib/units'
 import {
   TAX_RATE_DEFAULT,
   ZK_SCHEMA_ID,
@@ -23,9 +27,9 @@ import {
 const SEAL_STAGES = ['Membuka TransGate & halaman AdSense', 'Memverifikasi tanda tangan bukti']
 
 /** petakan bukti terverifikasi ke Proof store — angka dari ambang ter-attest, bukan mock */
-const toStoreProof = (raw: ZkProof, v: Extract<VerifyResult, { ok: true }>): Proof => ({
+const toStoreProof = (bukti: ZkProof, v: Extract<VerifyResult, { ok: true }>): Proof => ({
   schemaId: ZK_SCHEMA_ID,
-  proofHash: raw.taskId,
+  proofHash: bukti.taskId,
   nullifier: v.uHash,
   sealedAt: new Date().toISOString(),
   saldoFinal: v.floor,
@@ -34,8 +38,9 @@ const toStoreProof = (raw: ZkProof, v: Extract<VerifyResult, { ok: true }>): Pro
 })
 
 export default function AdvanceFlow() {
-  const { proof, saveProof, advances, submitAdvance } = useStore()
+  const { proof, saveProof, advances, submitAdvance, setWalletBalance } = useStore()
   const walletAddress = useWalletAddress()
+  const signer = useSignerClient()
   const [sealStage, setSealStage] = useState(-1)
   const [amount, setAmount] = useState('')
   const [step, setStep] = useState<1 | 2 | 3>(proof ? 2 : 1)
@@ -52,16 +57,16 @@ export default function AdvanceFlow() {
   const startSeal = async () => {
     setSealStage(0)
     try {
-      const raw = await launchVerification(walletAddress)
+      const bukti = await launchVerification(walletAddress)
       setSealStage(1)
-      const v = await verifyProof(raw)
+      const v = await verifyProof(bukti)
       if (!v.ok) {
         setSealStage(-1)
         toast.error('Bukti tidak sah', { description: failReasonText[v.reason] })
         return
       }
-      saveProof(toStoreProof(raw, v))
-      setRawProof(raw)
+      saveProof(toStoreProof(bukti, v))
+      setRawProof(bukti)
       setSealStage(-1)
       toast.success('Saldo final tersegel', {
         description: 'Bukti zkTLS sah dan menempel ke sesi AdSense Anda. Nullifier siap dicatat di registri.',
@@ -185,7 +190,7 @@ export default function AdvanceFlow() {
         <p className="text-[12.5px] leading-relaxed text-ink-2">
           Payout Google diproyeksikan <Money value={payoutNet} /> (setelah pajak). Setelah autodebet,
           sisa <Money value={payoutNet - n - fee} className="font-semibold text-green-deep" /> tetap milik Anda.
-          Nullifier <span className="tnum font-mono text-ink">{shortHash(pseudoHash(`ADV-09-26:${n}`, 20))}</span> mencegah
+          Nullifier <span className="tnum font-mono text-ink">{rawProof ? shortHash(rawProof.uHash) : '—'}</span> mencegah
           payout ini didanai dua kali.
         </p>
         <label className="mt-5 flex cursor-pointer items-start gap-3 border border-hairline bg-paper-2 p-4">
@@ -207,25 +212,43 @@ export default function AdvanceFlow() {
             disabled={!agreed || busy}
             onClick={async () => {
               setBusy(true)
-              /* gerbang trust boundary: keputusan hanya dari proof yang diverifikasi ulang */
-              const d = rawProof ? await decideFromProof(rawProof, n) : null
-              if (!d || !d.approved) {
+              try {
+                const rp = rawProof
+                if (!rp || !signer || !walletAddress) {
+                  toast.error('Belum siap', {
+                    description: !rp ? 'Segel ulang saldo final dulu.' : 'Wallet masih disiapkan — coba lagi sesaat.',
+                  })
+                  return
+                }
+                /* gerbang trust boundary: keputusan hanya dari proof yang diverifikasi ulang */
+                const d = await decideFromProof(rp, n)
+                if (!d.approved) {
+                  const why =
+                    d.reason === 'melebihi-batas'
+                      ? `Melebihi batas cair. Maksimum IDRX ${d.max.toLocaleString('id-ID')} (90% saldo setelah pajak).`
+                      : failReasonText['bentuk-bukti-tidak-valid']
+                  toast.error('Advance tidak disetujui', { description: why })
+                  return
+                }
+                /* 2 tx: approve utang (principal+fee) → requestAdvance; nullifier uHash kunci anti-ganda */
+                const pokok = raw(n)
+                const biaya = feeOf(pokok)
+                await runTx('Menyetujui potongan otomatis (approve)', 1, () => approveIdrx(signer, pokok + biaya))
+                const idVault = await runTx('Menulis advance on-chain', 1, () =>
+                  requestAdvanceTx(signer, { nullifier: rp.uHash, principal: pokok, dueAt: dueAtPayout() }),
+                )
+                /* proof pasti ada: langkah 3 hanya dicapai dari langkah 2 yang menuntut proof */
+                const rec = submitAdvance(n, proof!, { id: Number(idVault), fee: idr(biaya) })
+                setViewedId(rec.id)
+                setWalletBalance(idr(await idrxBalance(walletAddress)))
+                toast.success(`${rec.id} cair ke wallet`, {
+                  description: 'IDRX nyata sudah masuk wallet Anda. Autodebet dijadwalkan tanggal 21.',
+                })
+              } catch (e) {
+                toast.error('Advance gagal', { description: pesanError(e) })
+              } finally {
                 setBusy(false)
-                const why =
-                  d?.reason === 'melebihi-batas'
-                    ? `Melebihi batas cair. Maksimum IDRX ${d.max.toLocaleString('id-ID')} (90% saldo setelah pajak).`
-                    : failReasonText['bentuk-bukti-tidak-valid']
-                toast.error('Advance tidak disetujui', { description: why })
-                return
               }
-              await runTx('Menulis advance on-chain', 3, () => {})
-              /* proof pasti ada: langkah 3 hanya dicapai dari langkah 2 yang menuntut proof */
-              const rec = submitAdvance(n, proof!)
-              setViewedId(rec.id)
-              toast.success(`${rec.id} cair ke wallet`, {
-                description: 'Saldo wallet Anda sudah diperbarui. Pelunasan otomatis dijadwalkan 21 Okt.',
-              })
-              setBusy(false)
             }}
           >
             {busy ? 'Memproses…' : 'Tanda tangan dan cairkan'}
