@@ -31,15 +31,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const saveProof = useCallback((p: Proof) => setProof(p), [])
 
+  /**
+   * Catat advance baru: tambah record AKTIF, kirim principal ke wallet, jadwalkan autodebet.
+   * @param principal nominal yang diterima kreator (IDRX), fee 2,75% dihitung dari sini
+   * @param basis saldo final + pajak ter-attest dari bukti zkTLS — sumber angka record
+   */
   const submitAdvance = useCallback(
-    (principal: number) => {
+    (principal: number, basis: Pick<Proof, 'saldoFinal' | 'pajakEst'>) => {
       const fee = Math.round(principal * 0.0275)
       const id = `ADV-09-26`
       const record: Advance = {
         id,
         earningsMonth: sepEarnings.month,
-        saldoFinal: sepEarnings.saldoFinal,
-        pajakEst: sepEarnings.pajakEst,
+        saldoFinal: basis.saldoFinal,
+        pajakEst: basis.pajakEst,
         principal,
         fee,
         sweptAt: sepEarnings.payoutAt,

@@ -22,7 +22,12 @@ export interface Store {
   lpPosition: number
   lpTxs: LpTx[]
   saveProof: (p: Proof) => void
-  submitAdvance: (principal: number) => Advance
+  /**
+   * Catat advance baru dan kirim dana ke wallet.
+   * @param principal nominal yang diterima kreator (IDRX)
+   * @param basis saldo final + estimasi pajak dari bukti terverifikasi — bukan dari mock
+   */
+  submitAdvance: (principal: number, basis: Pick<Proof, 'saldoFinal' | 'pajakEst'>) => Advance
   /** maju ke 21 Okt: payout masuk, autodebet berjalan, rapor tercatat */
   runPayoutSweep: (id: string) => void
   lpDeposit: (amount: number) => void

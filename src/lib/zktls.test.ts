@@ -34,7 +34,8 @@ describe('evaluateAdvance', () => {
 })
 
 // fixture ECDSA dari key buangan (validator key 0x11…32, allocator key 0x22…32),
-// di-tandatangani sekali di luar module — sumber kebenaran independen.
+// ditandatangani sekali di luar module dengan semantik EIP-191 (signMessage) —
+// sumber kebenaran independen, meniru cara node zkPass menandatangani.
 const FIXTURE: ZkProof = {
   taskId: 'b48112cbafed46159fd0455f182c5941',
   schemaId: '00f2c96d3cbc437ca2e80b459a29973b',
@@ -42,15 +43,18 @@ const FIXTURE: ZkProof = {
   publicFieldsHash: '0xc89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6',
   allocatorAddress: '0x1563915e194D8CfBA1943570603F7606A3115508',
   allocatorSignature:
-    '0xf40915648529d7d463f7ee891849d59c81c3c04a7a11a560fcb1c754341188731a9d20de9a0b07ee2e0029e021f479805906d080fdf9e19bb64fa99a09af0f111b',
+    '0x868de319a28301c96e1332fda97dfaf6c64b8775d80f49e19864ea0360a7882850baf1b99f2d813bc63990a7eb48951cfd8c15424fc4465cafe29a3ad90ae1e41c',
   validatorAddress: '0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A',
   validatorSignature:
-    '0x16681864ee6f19ed22ceaf3f687d9c5a1ac70f56711e5dd8b5338d3caed9776d05f831cf203a1ee08277d724979bddcb147979e88fa50ef2064fd7224b968b511b',
+    '0xb70530f70b0cea9c8062d342d0241cc627ba9fd923253267d157ffdfbc8ab60a179793df1180ba3b5ee69a80ce5f21e8970ef62eda733444ccae80effcb6657f1c',
   recipient: '0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A',
 }
 
-/** ubah satu karakter hex di tengah (area r) — bentuk tanda tangan tetap sah, isinya berubah */
+/** ubah satu karakter hex — untuk tamper DATA (uHash), recovery tetap berjalan */
 const tamper = (s: string) => s.slice(0, 10) + (s[10] === '0' ? '1' : '0') + s.slice(11)
+
+/** balik parity v tanda tangan (1b↔1c) — ECDSA tetap sah, alamat hasil recovery berupa orang lain */
+const tamperSig = (s: string) => (s.endsWith('1c') ? `${s.slice(0, -2)}1b` : `${s.slice(0, -2)}1c`)
 
 describe('verifyProof', () => {
   const opts = { allocatorAddress: FIXTURE.allocatorAddress }
@@ -64,7 +68,9 @@ describe('verifyProof', () => {
   })
 
   it('tanda tangan validator dipalsukan → tolak', async () => {
-    expect(await verifyProof({ ...FIXTURE, validatorSignature: tamper(FIXTURE.validatorSignature) }, opts)).toEqual({
+    expect(
+      await verifyProof({ ...FIXTURE, validatorSignature: tamperSig(FIXTURE.validatorSignature) }, opts),
+    ).toEqual({
       ok: false,
       reason: 'tanda-tangan-validator-tidak-valid',
     })
@@ -78,7 +84,9 @@ describe('verifyProof', () => {
   })
 
   it('tanda tangan allocator dipalsukan → tolak', async () => {
-    expect(await verifyProof({ ...FIXTURE, allocatorSignature: tamper(FIXTURE.allocatorSignature) }, opts)).toEqual({
+    expect(
+      await verifyProof({ ...FIXTURE, allocatorSignature: tamperSig(FIXTURE.allocatorSignature) }, opts),
+    ).toEqual({
       ok: false,
       reason: 'tanda-tangan-allocator-tidak-valid',
     })

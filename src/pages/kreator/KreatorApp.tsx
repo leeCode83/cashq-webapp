@@ -148,7 +148,7 @@ function Ringkasan({ onGoAdvance }: { onGoAdvance: () => void }) {
                 IDRX {sepEarnings.saldoFinal.toLocaleString('id-ID')}
               </p>
               <p className="mt-2 text-[13px] text-ink-2">
-                Pajak AS 15% ({`IDRX ${sepEarnings.pajakEst.toLocaleString('id-ID')}`}) · payout Google {fmtDate(sepEarnings.payoutAt)}
+                Pajak AS 20% ({`IDRX ${sepEarnings.pajakEst.toLocaleString('id-ID')}`}) · payout Google {fmtDate(sepEarnings.payoutAt)}
               </p>
             </div>
             {proof ? (

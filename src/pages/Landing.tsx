@@ -30,7 +30,7 @@ function AdvanceSlip() {
   const fee = Math.round(diterima * 0.0275)
   const rows: [string, React.ReactNode, string?][] = [
     ['Saldo final Sep 2026', <Money value={sepEarnings.saldoFinal} />],
-    ['Pajak AS 15%', <span className="text-red">− <Money value={sepEarnings.pajakEst} /></span>],
+    ['Pajak AS 20%', <span className="text-red">− <Money value={sepEarnings.pajakEst} /></span>],
     ['Fee CashQ 2,75%', <span className="text-red">− <Money value={fee} /></span>],
     ['Cair hari ini', <span className="font-semibold"><Money value={diterima - fee} /></span>, 'strong'],
     ['Autodebet', <span>21 Okt, saat payout Google</span>],

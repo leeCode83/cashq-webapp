@@ -104,8 +104,10 @@ export const sepEarnings = {
   month: 'Sep 2026',
   postedAt: '2026-10-03',
   payoutAt: '2026-10-21',
-  saldoFinal: 18_742_000,
-  taxRate: 0.15,
+  /** senilai SCHEMA_FLOOR di lib/zktls — satu realitas untuk mock AdSense, schema, dan app */
+  saldoFinal: 8_400_000,
+  /** fallback pajak docs (rate withholding umum non-AS 10–30%) */
+  taxRate: 0.2,
   get pajakEst() {
     return Math.round(this.saldoFinal * this.taxRate)
   },
