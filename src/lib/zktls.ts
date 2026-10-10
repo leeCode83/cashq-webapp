@@ -23,6 +23,22 @@ export const ZK_ALLOCATOR_ADDRESS = '0x19a567b3b212a5b35bA0E3B600FbEd5c2eE9083d'
 /** ambang saldo final yang diattest schema: proof lolos = saldo >= nilai ini (IDRX) */
 export const SCHEMA_FLOOR = 8_400_000
 
+/** estimasi pajak AS di muka bila rate withholding tidak terbaca (docs: fallback 20%) */
+export const TAX_RATE_DEFAULT = 0.2
+
+/** persen tier kreator dengan histori baik (docs: maks 90%; kreator baru 70%) */
+export const TIER_PCT_DEFAULT = 0.9
+
+/** pesan tampilan untuk tiap alasan penolakan proof — satu sumber untuk semua UI */
+export const failReasonText: Record<VerifyFailReason, string> = {
+  'schema-tak-dikenal': 'Schema verifikasi tidak dikenali — pastikan schemaId aplikasi benar.',
+  'bentuk-bukti-tidak-valid': 'Bentuk bukti tidak valid — proses verifikasi terganggu.',
+  'tanda-tangan-allocator-tidak-valid': 'Tanda tangan allocator tidak cocok — bukti bukan dari infrastruktur zkPass resmi.',
+  'tanda-tangan-validator-tidak-valid': 'Tanda tangan validator tidak cocok — isi bukti telah berubah.',
+  'allocator-tidak-dikenal': 'Allocator node tidak dikenali.',
+  'recipient-tidak-cocok': 'Bukti tidak terikat ke wallet Anda.',
+}
+
 /** bukti zkTLS mentah yang dikembalikan ekstensi TransGate via SDK */
 export interface ZkProof {
   /** id tugas unik dari allocator node (32 karakter hex) */
@@ -130,7 +146,7 @@ export const verifyProof = async (
  * @param tierPct persen tier kreator (default 0,9 — histori baik; kreator baru 0,7)
  * @returns advance maksimum dalam IDRX
  */
-export const maxAdvance = (floor: number, taxRate = 0.2, tierPct = 0.9): number =>
+export const maxAdvance = (floor: number, taxRate = TAX_RATE_DEFAULT, tierPct = TIER_PCT_DEFAULT): number =>
   Math.round(floor * (1 - taxRate) * tierPct)
 
 /** keputusan advance: disetujui atau alasan penolakannya */
@@ -153,8 +169,8 @@ export interface AdvanceDecision {
 export const evaluateAdvance = (
   requested: number,
   floor: number,
-  taxRate = 0.2,
-  tierPct = 0.9,
+  taxRate = TAX_RATE_DEFAULT,
+  tierPct = TIER_PCT_DEFAULT,
 ): AdvanceDecision => {
   const max = maxAdvance(floor, taxRate, tierPct)
   return requested <= max

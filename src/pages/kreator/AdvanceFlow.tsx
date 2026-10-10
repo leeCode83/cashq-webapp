@@ -2,16 +2,34 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge, Btn, Field, Money, Rule } from '../../components/ui'
 import { Stamp } from '../../components/Stamp'
-import { runTx, sleep } from '../../lib/tx'
+import { runTx } from '../../lib/tx'
 import { useStore } from '../../lib/store-ctx'
-import { creator, FEE_RATE, MIN_ADVANCE, sepEarnings, type Advance } from '../../lib/mock'
+import type { Proof } from '../../lib/store-ctx'
+import { FEE_RATE, MIN_ADVANCE, sepEarnings, type Advance } from '../../lib/mock'
 import { fmtDate, pseudoHash, shortHash } from '../../lib/format'
+import {
+  TAX_RATE_DEFAULT,
+  ZK_SCHEMA_ID,
+  failReasonText,
+  launchVerification,
+  maxAdvance,
+  verifyProof,
+  type VerifyResult,
+  type ZkProof,
+} from '../../lib/zktls'
 
-const SEAL_STAGES = [
-  'Membuka sesi browser AdSense',
-  'Menyegel halaman Pembayaran',
-  'Menerbitkan bukti dan nullifier',
-]
+const SEAL_STAGES = ['Membuka TransGate & halaman AdSense', 'Memverifikasi tanda tangan bukti']
+
+/** petakan bukti terverifikasi ke Proof store — angka dari ambang ter-attest, bukan mock */
+const toStoreProof = (raw: ZkProof, v: Extract<VerifyResult, { ok: true }>): Proof => ({
+  schemaId: ZK_SCHEMA_ID,
+  proofHash: raw.taskId,
+  nullifier: v.uHash,
+  sealedAt: new Date().toISOString(),
+  saldoFinal: v.floor,
+  pajakEst: Math.round(v.floor * TAX_RATE_DEFAULT),
+  limit: maxAdvance(v.floor),
+})
 
 export default function AdvanceFlow() {
   const { proof, saveProof, advances, submitAdvance } = useStore()
@@ -27,24 +45,26 @@ export default function AdvanceFlow() {
   const shown = active ?? (viewedId ? advances.find((a) => a.id === viewedId) ?? null : null)
 
   const startSeal = async () => {
-    for (let i = 0; i < SEAL_STAGES.length; i++) {
-      setSealStage(i)
-      await sleep(i === 1 ? 1300 : 900)
+    setSealStage(0)
+    try {
+      const raw = await launchVerification()
+      setSealStage(1)
+      const v = await verifyProof(raw)
+      if (!v.ok) {
+        setSealStage(-1)
+        toast.error('Bukti tidak sah', { description: failReasonText[v.reason] })
+        return
+      }
+      saveProof(toStoreProof(raw, v))
+      setSealStage(-1)
+      toast.success('Saldo final tersegel', {
+        description: 'Bukti zkTLS sah dan menempel ke sesi AdSense Anda. Nullifier siap dicatat di registri.',
+      })
+      setStep(2)
+    } catch (e) {
+      setSealStage(-1)
+      toast.error('Verifikasi gagal', { description: e instanceof Error ? e.message : String(e) })
     }
-    saveProof({
-      schemaId: 'adsense-payout-final-v3',
-      proofHash: pseudoHash(`proof:${creator.wallet}`, 40),
-      nullifier: pseudoHash(`null:${creator.wallet}`, 34),
-      sealedAt: new Date().toISOString(),
-      saldoFinal: sepEarnings.saldoFinal,
-      pajakEst: sepEarnings.pajakEst,
-      limit: sepEarnings.limit,
-    })
-    setSealStage(-1)
-    toast.success('Saldo final tersegel', {
-      description: 'Bukti zkTLS menempel ke wallet Anda. Nullifier sudah tercatat di registri.',
-    })
-    setStep(2)
   }
 
   /* ---------- advance aktif: status, bukan wizard ---------- */
@@ -104,7 +124,7 @@ export default function AdvanceFlow() {
               <dd className="tnum mt-1 font-mono font-semibold"><Money value={proof.saldoFinal} /></dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">Pajak AS 15%</dt>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">Pajak AS 20%</dt>
               <dd className="tnum mt-1 font-mono text-red">− <Money value={proof.pajakEst} /></dd>
             </div>
             <div>
